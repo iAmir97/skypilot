@@ -860,7 +860,6 @@ class Resources:
         """
         if self._image_id is None:
             return
-
         if self.extract_docker_image() is not None:
             # TODO(tian): validate the docker image exists / of reasonable size
             if self.cloud is not None:

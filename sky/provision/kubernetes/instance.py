@@ -840,6 +840,7 @@ def terminate_instances(
                                      NUM_THREADS)
 
 def get_total_gpus():
+    from kubernetes import client, config
     # Load the Kubernetes configuration
     config.load_kube_config()
 
@@ -862,7 +863,6 @@ def get_total_gpus():
             # Get the number of GPUs for this node
             node_gpus = int(allocatable['amd.com/gpu'])
             total_gpus += node_gpus
-
     return total_gpus
 
 def get_cluster_info(
