@@ -26,8 +26,8 @@ logger = sky_logging.init_logger(__name__)
 def get_internal_ip(node_info: Dict[str, Any]) -> None:
     node_info['internal_ip'] = node_info['ip_address']
     runner = command_runner.SSHCommandRunner(
-        node_info['ip_address'],
-        ssh_user=node_info['capabilities']['default_user_name'],
+        (node_info['ip_address'], 22),
+        ssh_user='ubuntu',
         ssh_private_key=auth.PRIVATE_SSH_KEY_PATH)
     result = runner.run(_GET_INTERNAL_IP_CMD,
                         require_outputs=True,
@@ -43,8 +43,10 @@ def get_internal_ip(node_info: Dict[str, Any]) -> None:
         node_info['internal_ip'] = result[1].strip()
 
 
-def _filter_instances(cluster_name_on_cloud: str,
-                      status_filters: Optional[List[str]]) -> Dict[str, Any]:
+def _filter_instances(
+        cluster_name_on_cloud: str,
+        status_filters: Optional[List[str]],
+        include_instances: Optional[List[str]] = None) -> Dict[str, Any]:
 
     instances = utils.FluidstackClient().list_instances()
     possible_names = [
@@ -56,7 +58,10 @@ def _filter_instances(cluster_name_on_cloud: str,
         if (status_filters is not None and
                 instance['status'] not in status_filters):
             continue
-        if instance.get('hostname') in possible_names:
+        if (include_instances is not None and
+                instance['id'] not in include_instances):
+            continue
+        if instance.get('name') in possible_names:
             filtered_instances[instance['id']] = instance
     return filtered_instances
 
@@ -64,7 +69,7 @@ def _filter_instances(cluster_name_on_cloud: str,
 def _get_head_instance_id(instances: Dict[str, Any]) -> Optional[str]:
     head_instance_id = None
     for inst_id, inst in instances.items():
-        if inst['hostname'].endswith('-head'):
+        if inst['name'].endswith('-head'):
             head_instance_id = inst_id
             break
     return head_instance_id
@@ -75,32 +80,65 @@ def run_instances(region: str, cluster_name_on_cloud: str,
     """Runs instances for the given cluster."""
 
     pending_status = [
-        'create',
-        'requesting',
-        'provisioning',
-        'customizing',
-        'starting',
-        'stopping',
-        'start',
-        'stop',
-        'reboot',
-        'rebooting',
+        'pending',
     ]
-
     while True:
         instances = _filter_instances(cluster_name_on_cloud, pending_status)
+        if len(instances) > config.count:
+            raise RuntimeError(
+                f'Cluster {cluster_name_on_cloud} already has '
+                f'{len(instances)} nodes, but {config.count} are '
+                'required. Please try terminate the cluster and retry.')
         if not instances:
             break
-        logger.info(f'Waiting for {len(instances)} instances to be ready.')
+        instance_statuses = [
+            instance['status'] for instance in instances.values()
+        ]
+        logger.info(f'Waiting for {len(instances)} instances to be ready: '
+                    f'{instance_statuses}')
         time.sleep(POLL_INTERVAL)
     exist_instances = _filter_instances(cluster_name_on_cloud, ['running'])
     head_instance_id = _get_head_instance_id(exist_instances)
+
+    def rename(instance_id: str, new_name: str) -> None:
+        try:
+            utils.FluidstackClient().rename(instance_id, new_name)
+        except Exception as e:
+            logger.warning(f'run_instances error: {e}')
+            raise
+
+    for instance_id, instance in exist_instances.items():
+        if head_instance_id is None:
+            # It is possible that head instance does not exist because the
+            # worker instance provisioning succeeded, but failed for the head
+            # instance in a previous launch.
+            head_instance_id = instance_id
+            instance_name = f'{cluster_name_on_cloud}-head'
+            logger.info(f'Renaming head node {head_instance_id} to '
+                        f'{instance_name}')
+            rename(instance_id, instance_name)
+        if (instance_id != head_instance_id and
+                instance['name'].endswith('-head')):
+            # Multiple head instances exist.
+            # This is a rare case when the instance name was manually modified
+            # on the cloud or some unexpected behavior happened.
+            # TODO(zhwu): This may not be necessary. An althernative can be
+            # terminating those head instances.
+            instance_name = f'{cluster_name_on_cloud}-worker'
+            logger.info(f'Renaming worker node {instance_id} to '
+                        f'{instance_name}.')
+            try:
+                utils.FluidstackClient().rename(instance_id, instance_name)
+            except Exception as e:  # pylint: disable=broad-except
+                logger.warning(f'run_instances error: {e}')
+                raise
 
     to_start_count = config.count - len(exist_instances)
     if to_start_count < 0:
         raise RuntimeError(
             f'Cluster {cluster_name_on_cloud} already has '
-            f'{len(exist_instances)} nodes, but {config.count} are required.')
+            f'{len(exist_instances)} nodes, but {config.count} are '
+            'required. Please try terminate the cluster and retry.')
     if to_start_count == 0:
         if head_instance_id is None:
             raise RuntimeError(
@@ -120,7 +158,7 @@ def run_instances(region: str, cluster_name_on_cloud: str,
         node_type = 'head' if head_instance_id is None else 'worker'
         try:
             instance_ids = utils.FluidstackClient().create_instance(
-                hostname=f'{cluster_name_on_cloud}-{node_type}',
+                name=f'{cluster_name_on_cloud}-{node_type}',
                 instance_type=config.node_config['InstanceType'],
                 ssh_pub_key=config.node_config['AuthorizedKey'],
                 region=region)
@@ -134,20 +172,40 @@ def run_instances(region: str, cluster_name_on_cloud: str,
 
     # Wait for instances to be ready.
     while True:
-        instances = _filter_instances(cluster_name_on_cloud, ['running'])
-        ready_instance_cnt = len(instances)
+        instances = _filter_instances(cluster_name_on_cloud,
+                                      pending_status + ['running'])
+        if len(instances) < config.count:
+            all_instances = _filter_instances(
+                cluster_name_on_cloud,
+                status_filters=None,
+                include_instances=created_instance_ids)
+            all_statuses = [
+                instance['status'] for instance in all_instances.values()
+            ]
+            failed_instance_cnt = config.count - len(instances)
+            logger.error(f'Failed to create {failed_instance_cnt} '
+                         f'instances for cluster {cluster_name_on_cloud}, '
+                         f'with statuses: {all_statuses}')
+            raise RuntimeError(
+                f'Failed to create {failed_instance_cnt} instances, '
+                f'with statuses: {all_statuses}')
+
+        ready_instances = []
+        pending_instances = []
+        for instance in instances.values():
+            if instance['status'] == 'running':
+                ready_instances.append(instance)
+            else:
+                pending_instances.append(instance)
+        ready_instance_cnt = len(ready_instances)
+        pending_statuses = [
+            instance['status'] for instance in pending_instances
+        ]
         logger.info('Waiting for instances to be ready: '
-                    f'({ready_instance_cnt}/{config.count}).')
+                    f'({ready_instance_cnt}/{config.count}).\n'
+                    f'  Pending instance statuses: {pending_statuses}')
         if ready_instance_cnt == config.count:
             break
-        failed_instances = _filter_instances(
-            cluster_name_on_cloud,
-            ['timeout error', 'failed to create', 'out of stock'])
-        if failed_instances:
-            logger.error(f'Failed to create {len(failed_instances)}'
-                         f'instances for cluster {cluster_name_on_cloud}')
-            raise RuntimeError(
-                f'Failed to create {len(failed_instances)} instances.')
 
         time.sleep(POLL_INTERVAL)
     assert head_instance_id is not None, 'head_instance_id should not be None'
@@ -183,15 +241,11 @@ def terminate_instances(
     instances = _filter_instances(cluster_name_on_cloud, None)
     for inst_id, inst in instances.items():
         logger.debug(f'Terminating instance {inst_id}: {inst}')
-        if worker_only and inst['hostname'].endswith('-head'):
+        if worker_only and inst['name'].endswith('-head'):
             continue
         try:
             utils.FluidstackClient().delete(inst_id)
         except Exception as e:  # pylint: disable=broad-except
-            if (isinstance(e, utils.FluidstackAPIError) and
-                    'Machine is already terminated' in str(e)):
-                logger.debug(f'Instance {inst_id} is already terminated.')
-                continue
             with ux_utils.print_exception_no_traceback():
                 raise RuntimeError(
                     f'Failed to terminate instance {inst_id}: '
@@ -203,7 +257,7 @@ def get_cluster_info(
         region: str,
         cluster_name_on_cloud: str,
         provider_config: Optional[Dict[str, Any]] = None) -> common.ClusterInfo:
-    del region, provider_config  # unused
+    del region  # unused
     running_instances = _filter_instances(cluster_name_on_cloud, ['running'])
     instances: Dict[str, List[common.InstanceInfo]] = {}
 
@@ -221,12 +275,14 @@ def get_cluster_info(
                 tags={},
             )
         ]
-        if instance_info['hostname'].endswith('-head'):
+        if instance_info['name'].endswith('-head'):
             head_instance_id = instance_id
 
     return common.ClusterInfo(instances=instances,
                               head_instance_id=head_instance_id,
-                              custom_ray_options={'use_external_ip': True})
+                              custom_ray_options={'use_external_ip': True},
+                              provider_name='fluidstack',
+                              provider_config=provider_config)
 
 
 def query_instances(
@@ -239,21 +295,10 @@ def query_instances(
     instances = _filter_instances(cluster_name_on_cloud, None)
     instances = _filter_instances(cluster_name_on_cloud, None)
     status_map = {
-        'provisioning': status_lib.ClusterStatus.INIT,
-        'requesting': status_lib.ClusterStatus.INIT,
-        'create': status_lib.ClusterStatus.INIT,
-        'customizing': status_lib.ClusterStatus.INIT,
-        'stopping': status_lib.ClusterStatus.STOPPED,
-        'stop': status_lib.ClusterStatus.STOPPED,
-        'start': status_lib.ClusterStatus.INIT,
-        'reboot': status_lib.ClusterStatus.STOPPED,
-        'rebooting': status_lib.ClusterStatus.STOPPED,
+        'pending': status_lib.ClusterStatus.INIT,
         'stopped': status_lib.ClusterStatus.STOPPED,
-        'starting': status_lib.ClusterStatus.INIT,
         'running': status_lib.ClusterStatus.UP,
-        'failed to create': status_lib.ClusterStatus.INIT,
-        'timeout error': status_lib.ClusterStatus.INIT,
-        'out of stock': status_lib.ClusterStatus.INIT,
+        'unhealthy': status_lib.ClusterStatus.INIT,
         'terminated': None,
     }
     statuses: Dict[str, Optional[status_lib.ClusterStatus]] = {}
@@ -271,6 +316,17 @@ def query_instances(
 
 def cleanup_ports(
     cluster_name_on_cloud: str,
+    ports: List[str],
+    provider_config: Optional[Dict[str, Any]] = None,
+) -> None:
+    del cluster_name_on_cloud, ports, provider_config
+
+
+def open_ports(
+    cluster_name_on_cloud: str,
+    ports: List[str],
     provider_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     del cluster_name_on_cloud, provider_config
+    logger.debug(f'Skip opening ports {ports} for Fluidstack instances, as all '
+                 'ports are open by default.')

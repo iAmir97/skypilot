@@ -1,15 +1,18 @@
 """OCI Configuration.
 History:
- - Zhanghao Wu @ Oct 2023: Formatting and refactoring
  - Hysun He (hysun.he@oracle.com) @ Apr, 2023: Initial implementation
+ - Zhanghao Wu @ Oct 2023: Formatting and refactoring
+ - Hysun He (hysun.he@oracle.com) @ Oct, 2024: Add default image OS
+   configuration.
 """
-import logging
 import os
 
+from sky import sky_logging
 from sky import skypilot_config
+from sky import status_lib
 from sky.utils import resources_utils
 
-logger = logging.getLogger(__name__)
+logger = sky_logging.init_logger(__name__)
 
 
 class OCIConfig:
@@ -75,6 +78,19 @@ class OCIConfig:
         resources_utils.DiskTier.HIGH: DISK_TIER_HIGH,
     }
 
+    # Oracle instance's lifecycle state to sky state mapping.
+    # For Oracle VM instance's lifecyle state, please refer to the link:
+    # https://docs.oracle.com/en-us/iaas/api/#/en/iaas/latest/Instance/
+    STATE_MAPPING_OCI_TO_SKY = {
+        'PROVISIONING': status_lib.ClusterStatus.INIT,
+        'STARTING': status_lib.ClusterStatus.INIT,
+        'RUNNING': status_lib.ClusterStatus.UP,
+        'STOPPING': status_lib.ClusterStatus.STOPPED,
+        'STOPPED': status_lib.ClusterStatus.STOPPED,
+        'TERMINATED': None,
+        'TERMINATING': None,
+    }
+
     @classmethod
     def get_compartment(cls, region):
         # Allow task(cluster)-specific compartment/VCN parameters.
@@ -120,6 +136,14 @@ class OCIConfig:
     def get_profile(cls) -> str:
         return skypilot_config.get_nested(
             ('oci', 'default', 'oci_config_profile'), 'DEFAULT')
+
+    @classmethod
+    def get_default_image_os(cls) -> str:
+        # Get the default image OS. Instead of hardcoding, we give a choice to
+        # set the default image OS type in the sky's user-config file. (if not
+        # specified, use the hardcode one at last)
+        return skypilot_config.get_nested(('oci', 'default', 'image_os_type'),
+                                          'ubuntu')
 
 
 oci_config = OCIConfig()

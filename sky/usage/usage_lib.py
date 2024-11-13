@@ -140,6 +140,7 @@ class UsageMessageToReport(MessageToReport):
         #: Requested number of nodes
         self.task_num_nodes: Optional[int] = None  # update_actual_task
         # YAMLs converted to JSON.
+        # TODO: include the skypilot config used in task yaml.
         self.user_task_yaml: Optional[List[Dict[
             str, Any]]] = None  # update_user_task_yaml
         self.actual_task: Optional[List[Dict[str,
@@ -190,6 +191,9 @@ class UsageMessageToReport(MessageToReport):
                 self.task_accelerators = list(resources.accelerators.keys())[0]
                 self.task_num_accelerators = resources.accelerators[
                     self.task_accelerators]
+            else:
+                self.task_accelerators = None
+                self.task_num_accelerators = None
 
     def update_task_id(self, task_id: int):
         self.task_id = task_id
@@ -224,6 +228,9 @@ class UsageMessageToReport(MessageToReport):
                              f'{resources.accelerators}.')
             self.accelerators = list(resources.accelerators.keys())[0]
             self.num_accelerators = resources.accelerators[self.accelerators]
+        else:
+            self.accelerators = None
+            self.num_accelerators = None
 
         self.num_nodes = num_nodes
         self.resources = resources.to_yaml_config()
@@ -425,8 +432,9 @@ def entrypoint_context(name: str, fallback: bool = False):
         with ux_utils.enable_traceback():
             trace = traceback.format_exc()
             messages.usage.stacktrace = trace
-            if hasattr(e, 'detailed_reason') and e.detailed_reason is not None:
-                messages.usage.stacktrace += '\nDetails: ' + e.detailed_reason
+            detailed_reason = getattr(e, 'detailed_reason', None)
+            if detailed_reason is not None:
+                messages.usage.stacktrace += '\nDetails: ' + detailed_reason
             messages.usage.exception = common_utils.remove_color(
                 common_utils.format_exception(e))
         raise

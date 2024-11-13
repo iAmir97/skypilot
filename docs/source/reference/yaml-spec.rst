@@ -19,8 +19,11 @@ Available fields:
     #
     # Commands in "setup" and "run" will be executed under it.
     #
-    # If a .gitignore file (or a .git/info/exclude file) exists in the working
-    # directory, files and directories listed in it will be excluded from syncing.
+    # If a relative path is used, it's evaluated relative to the location from 
+    # which `sky` is called.
+    #
+    # To exclude files from syncing, see 
+    # https://skypilot.readthedocs.io/en/latest/examples/syncing-code-artifacts.html#exclude-uploading-files
     workdir: ~/my-task-code
 
     # Number of nodes (optional; defaults to 1) to launch including the head node.
@@ -48,18 +51,18 @@ Available fields:
       #
       #   To specify a single type of accelerator:
       #     Format: <name>:<count> (or simply <name>, short for a count of 1).
-      #     accelerators: V100:4
+      #     accelerators: H100:4
       #
       #   To specify an ordered list of accelerators (try the accelerators in
       #   the specified order):
       #     Format: [<name>:<count>, ...]
-      #     accelerators: ['K80:1', 'V100:1', 'T4:1']
+      #     accelerators: ['L4:1', 'H100:1', 'A100:1']
       #
       #   To specify an unordered set of accelerators (optimize all specified
       #   accelerators together, and try accelerator with lowest cost first):
       #     Format: {<name>:<count>, ...}
-      #     accelerators: {'K80:1', 'V100:1', 'T4:1'}
-      accelerators: V100:4
+      #     accelerators: {'L4:1', 'H100:1', 'A100:1'}
+      accelerators: H100:8
 
       # Number of vCPUs per node (optional).
       #
@@ -89,22 +92,39 @@ Available fields:
       # If unspecified, defaults to False (on-demand instances).
       use_spot: False
 
-      # The recovery strategy for spot jobs (optional).
-      # `use_spot` must be True for this to have any effect. For now, only
-      # `FAILOVER` strategy is supported.
-      spot_recovery: none
+      # The recovery strategy for managed jobs (optional).
+      #
+      # In effect for managed jobs. Possible values are `FAILOVER` and `EAGER_NEXT_REGION`.
+      #
+      # If `FAILOVER` is specified, the job will be restarted in the same region
+      # if the node fails, and go to the next region if no available resources
+      # are found in the same region. 
+      #
+      # If `EAGER_NEXT_REGION` is specified, the job will go to the next region
+      # directly if the node fails. This is useful for spot instances, as in
+      # practice, preemptions in a region usually indicate a shortage of resources
+      # in that region.
+      #
+      # default: EAGER_NEXT_REGION
+      job_recovery: none
+      # Or, to allow up to 3 restarts (default: 0) on user code errors:
+      # job_recovery:
+      #   strategy: EAGER_NEXT_REGION
+      #   max_restarts_on_errors: 3
 
       # Disk size in GB to allocate for OS (mounted at /). Increase this if you
       # have a large working directory or tasks that write out large outputs.
       disk_size: 256
 
       # Disk tier to use for OS (optional).
-      # Could be one of 'low', 'medium', 'high' or 'best' (default: 'medium').
+      # Could be one of 'low', 'medium', 'high', 'ultra' or 'best' (default: 'medium').
       # if 'best' is specified, use the best disk tier enabled.
       # Rough performance estimate:
-      #   low: 500 IOPS; read 20MB/s; write 40 MB/s
-      #   medium: 3000 IOPS; read 220 MB/s; write 200 MB/s
-      #   high: 6000 IOPS; 340 MB/s; write 250 MB/s
+      #   low: 1000 IOPS; read 90 MB/s; write 90 MB/s
+      #   medium: 3000 IOPS; read 220 MB/s; write 220 MB/s
+      #   high: 6000 IOPS; read 400 MB/s; write 400 MB/s
+      #   ultra: 60000 IOPS;  read 4000 MB/s; write 3000 MB/s
+      # Measured by examples/perf/storage_rawperf.yaml
       disk_tier: medium
 
       # Ports to expose (optional).
@@ -191,6 +211,10 @@ Available fields:
       # Or machine image: https://cloud.google.com/compute/docs/machine-images
       # image_id: projects/my-project/global/machineImages/my-machine-image
       #
+      # Azure
+      # To find Azure images: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
+      # image_id: microsoft-dsvm:ubuntu-2004:2004:21.11.04
+      #
       # IBM
       # Create a private VPC image and paste its ID in the following format:
       # image_id: <unique_image_id>
@@ -200,6 +224,20 @@ Available fields:
       # https://www.ibm.com/cloud/blog/use-ibm-packer-plugin-to-create-custom-images-on-ibm-cloud-vpc-infrastructure
       # To use a more limited but easier to manage tool:
       # https://github.com/IBM/vpc-img-inst
+
+      # Labels to apply to the instances (optional).
+      #
+      # If specified, these labels will be applied to the VMs or pods created
+      # by SkyPilot. These are useful for assigning metadata that may be
+      # used by external tools. Implementation depends on the chosen cloud -
+      # On AWS, labels map to instance tags. On GCP, labels map to instance
+      # labels. On Kubernetes, labels map to pod labels. On other clouds,
+      # labels are not supported and will be ignored.
+      #
+      # Note: Labels are applied only on the first launch of the cluster. They
+      # are not updated on subsequent launches.
+      labels:
+        my-label: my-value
 
       # Candidate resources (optional). If specified, SkyPilot will only use
       # these candidate resources to launch the cluster. The fields specified
@@ -215,9 +253,9 @@ Available fields:
       any_of:
         - cloud: aws
           region: us-west-2
-          acceraltors: V100
+          accelerators: H100
         - cloud: gcp
-          acceraltors: A100
+          accelerators: H100
 
 
     # Environment variables (optional). These values can be accessed in the
@@ -252,6 +290,9 @@ Available fields:
     file_mounts:
       # Uses rsync to sync local files/directories to all nodes of the cluster.
       #
+      # If a relative path is used, it's evaluated relative to the location from
+      # which `sky` is called.
+      #
       # If symlinks are present, they are copied as symlinks, and their targets
       # must also be synced using file_mounts to ensure correctness.
       /remote/dir1/file: /local/dir1/file
@@ -265,8 +306,8 @@ Available fields:
       # Mounts the bucket at /datasets-storage on every node of the cluster.
       /datasets-storage:
         name: sky-dataset  # Name of storage, optional when source is bucket URI
-        source: /local/path/datasets  # Source path, can be local or s3/gcs URL. Optional, do not specify to create an empty bucket.
-        store: s3  # Could be either 's3', 'gcs' or 'r2'; default: None. Optional.
+        source: /local/path/datasets  # Source path, can be local or bucket URI. Optional, do not specify to create an empty bucket.
+        store: s3  # Could be either 's3', 'gcs', 'azure', 'r2', or 'ibm'; default: None. Optional.
         persistent: True  # Defaults to True; can be set to false to delete bucket after cluster is downed. Optional.
         mode: MOUNT  # Either MOUNT or COPY. Defaults to MOUNT. Optional.
 
@@ -296,3 +337,34 @@ Available fields:
 
       # Demoing env var usage.
       echo Env var MODEL_SIZE has value: ${MODEL_SIZE}
+
+
+.. _task-yaml-experimental:
+
+Experimental Configurations
+---------------------------
+
+.. note::
+
+  Experimental features and APIs may be changed or removed without any notice.
+
+In additional to the above fields, SkyPilot also supports the following experimental fields in the task YAML:
+
+.. code-block:: yaml
+
+  experimental:
+    # Override the configs in ~/.sky/config.yaml from a task level.
+    #
+    # The following fields can be overridden. Please refer to docs of Advanced
+    # Configuration for more details of those fields:
+    # https://skypilot.readthedocs.io/en/latest/reference/config.html
+    config_overrides:
+        docker:
+            run_options: ...
+        kubernetes:
+            pod_config: ...
+            provision_timeout: ...
+        gcp:
+            managed_instance_group: ...
+        nvidia_gpus:
+            disable_ecc: ...
