@@ -103,7 +103,7 @@ Step 2 - Set up GPU support
 
 To utilize GPUs on Kubernetes, your cluster must:
 
-1. Have the ``nvidia.com/gpu`` **resource** available on all GPU nodes and have ``nvidia`` as the default runtime for your container engine.
+1. Have the ``amd.com/gpu`` **resource** available on all GPU nodes and have ``nvidia`` as the default runtime for your container engine.
 
    * If you are following :ref:`our deployment guides <kubernetes-deployment>` or using GKE or EKS, this would already be set up. Else, install the `Nvidia GPU Operator <https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html#install-nvidia-gpu-operator>`_.
 
@@ -137,7 +137,7 @@ To use GPUs with SkyPilot, cluster nodes must be labelled with the GPU type. Thi
 
 Currently supported labels are:
 
-* ``nvidia.com/gpu.product``: automatically created by Nvidia GPU Operator.
+* ``amd.com/gpu.product``: automatically created by Nvidia GPU Operator.
 * ``cloud.google.com/gke-accelerator``: used by GKE clusters.
 * ``karpenter.k8s.aws/instance-gpu-name``: used by Karpenter.
 * ``skypilot.co/accelerator``: custom label used by SkyPilot if none of the above are present.

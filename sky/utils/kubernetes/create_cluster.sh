@@ -112,7 +112,7 @@ wait_for_gpu_operator_installation() {
     TIMEOUT=600  # 10 minutes in seconds
 
     while true; do
-        if kubectl describe nodes | grep -q 'nvidia.com/gpu:'; then
+        if kubectl describe nodes | grep -q 'amd.com/gpu:'; then
             echo "GPU operator installed."
             break
         elif [ $SECONDS -ge $TIMEOUT ]; then
@@ -177,7 +177,7 @@ NUM_CPUS=$(kubectl get nodes -o jsonpath='{.items[0].status.capacity.cpu}')
 echo "Kubernetes cluster ready! Run `sky check` to setup Kubernetes access."
 if $ENABLE_GPUS; then
     # As a sanity check, verify if GPU support is enabled
-    if ! kubectl describe nodes | grep -q nvidia.com/gpu; then
+    if ! kubectl describe nodes | grep -q amd.com/gpu; then
         >&2 echo "GPU support was not enabled. Please check for any errors above."
         exit 1
     else

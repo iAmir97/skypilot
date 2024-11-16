@@ -127,12 +127,12 @@ Here is a side-by-side comparison of the YAMLs for serving Gemma with vLLM on Sk
                cpu: "2"
                memory: "10Gi"
                ephemeral-storage: "10Gi"
-               nvidia.com/gpu: 1
+               amd.com/gpu: 1
              limits:
                cpu: "2"
                memory: "10Gi"
                ephemeral-storage: "10Gi"
-               nvidia.com/gpu: 1
+               amd.com/gpu: 1
            command: ["python3", "-m", "vllm.entrypoints.api_server"]
            args:
            - --model=$(MODEL_ID)

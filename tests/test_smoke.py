@@ -5769,7 +5769,7 @@ def test_kubernetes_context_failover():
             [
                 # Check if kind-skypilot is provisioned with H100 annotations already
                 'NODE_INFO=$(kubectl get nodes -o yaml --context kind-skypilot) && '
-                'echo "$NODE_INFO" | grep nvidia.com/gpu | grep 8 && '
+                'echo "$NODE_INFO" | grep amd.com/gpu | grep 8 && '
                 'echo "$NODE_INFO" | grep skypilot.co/accelerator | grep h100 || '
                 '{ echo "kind-skypilot does not exist '
                 'or does not have mock labels for GPUs. Check the instructions in '

@@ -3126,6 +3126,7 @@ def show_gpus(
             region_filter=context,
             quantity_filter=quantity_filter,
             case_sensitive=False)
+
         assert (set(counts.keys()) == set(capacity.keys()) == set(
             available.keys())), (f'Keys of counts ({list(counts.keys())}), '
                                  f'capacity ({list(capacity.keys())}), '
@@ -3161,11 +3162,11 @@ def show_gpus(
 
         node_info_dict = kubernetes_utils.get_kubernetes_node_info(context)
         for node_name, node_info in node_info_dict.items():
-            available = node_info.free['nvidia.com/gpu'] if node_info.free[
-                'nvidia.com/gpu'] != -1 else no_permissions_str
+            available = node_info.free['amd.com/gpu'] if node_info.free[
+                'amd.com/gpu'] != -1 else no_permissions_str
             node_table.add_row([
                 node_name, node_info.gpu_type,
-                node_info.total['nvidia.com/gpu'], available
+                node_info.total['amd.com/gpu'], available
             ])
         return node_table
 
@@ -3205,8 +3206,7 @@ def show_gpus(
                     # If --cloud kubernetes is not specified, we want to catch
                     # the case where no GPUs are available on the cluster and
                     # print the warning at the end.
-                    k8s_realtime_table = _get_kubernetes_realtime_gpu_table(
-                        context)
+                    k8s_realtime_table = _get_kubernetes_realtime_gpu_table(context)
                 except ValueError as e:
                     if not cloud_is_kubernetes:
                         # Make it a note if cloud is not kubernetes
@@ -5308,7 +5308,7 @@ def _deploy_local_cluster(gpus: bool):
                 logger.warning(f'Failed to get GPU type: {output}')
                 gpu_type_str = ''
 
-            # Get number of GPUs (sum of nvidia.com/gpu resources)
+            # Get number of GPUs (sum of amd.com/gpu resources)
             gpu_count_command = 'kubectl get nodes -o=jsonpath=\'{range .items[*]}{.status.allocatable.amd\\.com/gpu}{\"\\n\"}{end}\' | awk \'{sum += $1} END {print sum}\''  # pylint: disable=line-too-long
             try:
                 # Run the command and capture the output

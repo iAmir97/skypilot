@@ -31,9 +31,9 @@ spec:
           requests:
             cpu: "0.1"
             memory: "100Mi"
-            nvidia.com/gpu: "1"
+            amd.com/gpu: "1"
           limits:
-            nvidia.com/gpu: "1"
+            amd.com/gpu: "1"
       volumes:
       - name: label-script
         configMap:

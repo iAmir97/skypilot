@@ -108,16 +108,16 @@ In this section, we will verify that your cluster has GPU support and that SkyPi
 Step B0 - Is your cluster GPU-enabled?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run :code:`kubectl describe nodes` or the below snippet to verify that your nodes have :code:`nvidia.com/gpu` resources.
+Run :code:`kubectl describe nodes` or the below snippet to verify that your nodes have :code:`amd.com/gpu` resources.
 
 .. code-block:: bash
 
     $ kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, capacity: .status.capacity}'
-    # Look for the `nvidia.com/gpu` field under resources in the output. It should show the number of GPUs available for each node.
+    # Look for the `amd.com/gpu` field under resources in the output. It should show the number of GPUs available for each node.
 
-If you do not see the :code:`nvidia.com/gpu` field, your cluster likely does not have the Nvidia GPU operator installed.
+If you do not see the :code:`amd.com/gpu` field, your cluster likely does not have the Nvidia GPU operator installed.
 Please follow the instructions in :ref:`kubernetes-setup-gpusupport` to install the Nvidia GPU operator.
-Note that GPU operator installation can take several minutes, and you may see 0 capacity for ``nvidia.com/gpu`` resources until the installation is complete.
+Note that GPU operator installation can take several minutes, and you may see 0 capacity for ``amd.com/gpu`` resources until the installation is complete.
 
 .. tip::
 
@@ -141,7 +141,7 @@ Verify if GPU operator is installed and the ``nvidia`` runtime is set as default
     # Once you have verified that the pod is running, you can delete it
     $ kubectl delete -f https://raw.githubusercontent.com/skypilot-org/skypilot/master/tests/kubernetes/gpu_test_pod.yaml
 
-If the pod status is pending, make the :code:`nvidia.com/gpu` resources available on your nodes in the previous step. You can debug further by running :code:`kubectl describe pod skygputest`.
+If the pod status is pending, make the :code:`amd.com/gpu` resources available on your nodes in the previous step. You can debug further by running :code:`kubectl describe pod skygputest`.
 
 If the logs show `nvidia-smi: command not found`, likely the ``nvidia`` runtime is not set as default. Please install the Nvidia GPU operator and make sure the ``nvidia`` runtime is set as default.
 For example, for RKE2, refer to instructions on `Nvidia GPU Operator installation with Helm on RKE2 <https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html#custom-configuration-for-runtime-containerd>`_ to set the ``nvidia`` runtime as default.

@@ -219,7 +219,7 @@ if [ "$INSTALL_GPU" == "true" ]; then
         --set 'toolkit.env[2].name=CONTAINERD_RUNTIME_CLASS' \
         --set 'toolkit.env[2].value=nvidia' &&
         echo 'Waiting for GPU operator installation...' &&
-        while ! kubectl describe nodes --kubeconfig ~/.kube/config | grep -q 'nvidia.com/gpu:'; do
+        while ! kubectl describe nodes --kubeconfig ~/.kube/config | grep -q 'amd.com/gpu:'; do
             echo 'Waiting for GPU operator...'
             sleep 5
         done

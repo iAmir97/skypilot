@@ -134,7 +134,7 @@ Deploying on Google Cloud GKE
      $ kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/ubuntu/daemonset-preloaded-R525.yaml
 
    .. tip::
-      To verify if GPU drivers are set up, run ``kubectl describe nodes`` and verify that ``nvidia.com/gpu`` resource is listed under the ``Capacity`` section.
+      To verify if GPU drivers are set up, run ``kubectl describe nodes`` and verify that ``amd.com/gpu`` resource is listed under the ``Capacity`` section.
 
 4. Verify your kubernetes cluster is correctly set up for SkyPilot by running :code:`sky check`:
 

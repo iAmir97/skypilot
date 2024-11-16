@@ -238,7 +238,7 @@ class GFDLabelFormatter(GPULabelFormatter):
     """GPU Feature Discovery label formatter
 
     NVIDIA GPUs nodes are labeled by GPU feature discovery
-    e.g. nvidia.com/gpu.product=NVIDIA-H100-80GB-HBM3
+    e.g. amd.com/gpu.product=NVIDIA-H100-80GB-HBM3
     https://github.com/NVIDIA/gpu-feature-discovery
 
     GPU feature discovery is included as part of the
@@ -249,7 +249,7 @@ class GFDLabelFormatter(GPULabelFormatter):
     may map to multiple label, so we're not implementing `get_label_value`
     """
 
-    LABEL_KEY = 'nvidia.com/gpu.product'
+    LABEL_KEY = 'amd.com/gpu.product'
 
     @classmethod
     def get_label_key(cls) -> str:
@@ -1792,7 +1792,7 @@ class KubernetesNodeInfo:
     """Dataclass to store Kubernetes node information."""
     name: str
     gpu_type: Optional[str]
-    # Resources available on the node. E.g., {'nvidia.com/gpu': '2'}
+    # Resources available on the node. E.g., {'amd.com/gpu': '2'}
     total: Dict[str, int]
     free: Dict[str, int]
 
@@ -1839,7 +1839,7 @@ def get_kubernetes_node_info(
             accelerator_name = None
 
         accelerator_count = int(node.status.allocatable.get(
-            'nvidia.com/gpu', 0))
+            'amd.com/gpu', 0))
 
         if pods is None:
             accelerators_available = -1
@@ -1855,14 +1855,14 @@ def get_kubernetes_node_info(
                         if container.resources.requests:
                             allocated_qty += int(
                                 container.resources.requests.get(
-                                    'nvidia.com/gpu', 0))
+                                    'amd.com/gpu', 0))
             accelerators_available = accelerator_count - allocated_qty
 
         node_info_dict[node.metadata.name] = KubernetesNodeInfo(
             name=node.metadata.name,
             gpu_type=accelerator_name,
-            total={'nvidia.com/gpu': int(accelerator_count)},
-            free={'nvidia.com/gpu': int(accelerators_available)})
+            total={'amd.com/gpu': int(accelerator_count)},
+            free={'amd.com/gpu': int(accelerators_available)})
 
     return node_info_dict
 
@@ -2099,7 +2099,7 @@ def process_skypilot_pods(
                 unit='G')
             gpu_count = parse_cpu_or_gpu_resource(
                 pod.spec.containers[0].resources.requests.get(
-                    'nvidia.com/gpu', '0'))
+                    'amd.com/gpu', '0'))
             gpu_name = None
             if gpu_count > 0:
                 label_formatter, _ = (detect_gpu_label_formatter(context))

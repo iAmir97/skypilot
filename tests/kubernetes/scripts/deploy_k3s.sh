@@ -46,7 +46,7 @@ wait_for_gpu_operator_installation() {
     TIMEOUT=600  # 10 minutes in seconds
 
     while true; do
-        if kubectl describe nodes | grep -q 'nvidia.com/gpu:'; then
+        if kubectl describe nodes | grep -q 'amd.com/gpu:'; then
             echo "GPU operator installed."
             break
         elif [ $SECONDS -ge $TIMEOUT ]; then

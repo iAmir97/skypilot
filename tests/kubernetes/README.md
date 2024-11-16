@@ -27,7 +27,7 @@ sky local up
 
 ### Mocking a GPU node on your `sky local up` cluster
 
-To mock a GPU node on your local cluster, you can add a label and a nvidia.com/gpu virtual resource to a node.
+To mock a GPU node on your local cluster, you can add a label and a amd.com/gpu virtual resource to a node.
 
 ```bash
 # Make sure `sky local up` cluster is running
@@ -71,7 +71,7 @@ curl --header "Content-Type: application/json-patch+json" \
 
    kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/ubuntu/daemonset-preloaded-R525.yaml
    ```
-   This will create a resource like `nvidia.com/gpu: 1`. You can verify this resource is available by running:
+   This will create a resource like `amd.com/gpu: 1`. You can verify this resource is available by running:
    ```bash
    kubectl describe nodes
    ```
