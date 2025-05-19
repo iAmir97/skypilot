@@ -16,6 +16,7 @@ from sky.utils import log_utils
 from sky.utils import rich_utils
 from sky.utils import subprocess_utils
 from sky.utils import ux_utils
+from sky.provision.kubernetes.utils import get_gpu_resource_key
 
 logger = sky_logging.init_logger(__name__)
 
@@ -185,6 +186,7 @@ def deploy_local_cluster(gpus: bool):
         # GPU count/type parsing
         gpu_message = ''
         gpu_hint = ''
+        gpu_type = get_gpu_resource_key().split('.')[0]
         if gpus:
             # Get GPU model by querying the node labels
             label_name_escaped = 'skypilot.co/accelerator'.replace('.', '\\.')
@@ -201,7 +203,8 @@ def deploy_local_cluster(gpus: bool):
                 gpu_type_str = ''
 
             # Get number of GPUs (sum of nvidia.com/gpu resources)
-            gpu_count_command = 'kubectl get nodes -o=jsonpath=\'{range .items[*]}{.status.allocatable.amd\\.com/gpu}{\"\\n\"}{end}\' | awk \'{sum += $1} END {print sum}\''  # pylint: disable=line-too-long
+            gpu_count_command = f'kubectl get nodes -o=jsonpath=\'{{range .items[*]}}{{.status.allocatable.{gpu_type}\\.com/gpu}}{{"\\n"}}{{end}}\' | awk \'{{sum += $1}} END {{print sum}}\''  # pylint: disable=line-too-long
+            # gpu_count_command = 'kubectl get nodes -o=jsonpath=\'{range .items[*]}{.status.allocatable.nvidia\\.com/gpu}{\"\\n\"}{end}\' | awk \'{sum += $1} END {print sum}\''  # pylint: disable=line-too-long
             try:
                 # Run the command and capture the output
                 gpu_count_output = subprocess.check_output(gpu_count_command,

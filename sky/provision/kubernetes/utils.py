@@ -72,7 +72,7 @@ MEMORY_SIZE_UNITS = {
 # The resource keys used by Kubernetes to track NVIDIA GPUs and Google TPUs on
 # nodes. These keys are typically used in the node's status.allocatable
 # or status.capacity fields to indicate the available resources on the node.
-GPU_RESOURCE_KEY = 'amd.com/gpu'
+GPU_RESOURCE_KEY = 'nvidia.com/gpu'
 TPU_RESOURCE_KEY = 'google.com/tpu'
 
 NO_ACCELERATOR_HELP_MESSAGE = (
@@ -130,6 +130,19 @@ logger = sky_logging.init_logger(__name__)
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_INTERVAL_SECONDS = 1
 
+def get_gpu_resource_key():
+    """Get the GPU resource name to use in kubernetes.
+    The function first checks for an environment variable.
+    If defined, it uses its value; otherwise, it returns the default value.
+    Args:
+        name (str): Default GPU resource name, default is "nvidia.com/gpu".
+    Returns:
+        str: The selected GPU resource name.
+    """
+    # Retrieve GPU resource name from environment variable, if set.
+    # Else use default.
+    # E.g., can be nvidia.com/gpu-h100, amd.com/gpu etc.
+    return os.getenv('CUSTOM_GPU_RESOURCE_KEY', default=GPU_RESOURCE_KEY)
 
 def _retry_on_error(max_retries=DEFAULT_MAX_RETRIES,
                     retry_interval=DEFAULT_RETRY_INTERVAL_SECONDS,
@@ -339,8 +352,8 @@ class CoreWeaveLabelFormatter(GPULabelFormatter):
     Uses gpu.nvidia.com/class as the key, and the uppercase SkyPilot
     accelerator str as the value.
     """
-
-    LABEL_KEY = 'gpu.amd.com/class'
+    gpu_type = get_gpu_resource_key().split('.')[0]
+    LABEL_KEY = f'gpu.{gpu_type}].com/class'
 
     @classmethod
     def get_label_key(cls, accelerator: Optional[str] = None) -> str:
@@ -474,8 +487,8 @@ class GFDLabelFormatter(GPULabelFormatter):
     This LabelFormatter can't be used in autoscaling clusters since accelerators
     may map to multiple label, so we're not implementing `get_label_values`
     """
-
-    LABEL_KEY = 'amd.com/gpu.product'
+    gpu_type = get_gpu_resource_key()
+    LABEL_KEY = f'{gpu_type}.product'
 
     @classmethod
     def get_label_key(cls, accelerator: Optional[str] = None) -> str:
@@ -3065,20 +3078,6 @@ def process_skypilot_pods(
         cluster.resources_str = f'{num_pods}x {cluster.resources}'
     return list(clusters.values()), jobs_controllers, serve_controllers
 
-
-def get_gpu_resource_key():
-    """Get the GPU resource name to use in kubernetes.
-    The function first checks for an environment variable.
-    If defined, it uses its value; otherwise, it returns the default value.
-    Args:
-        name (str): Default GPU resource name, default is "nvidia.com/gpu".
-    Returns:
-        str: The selected GPU resource name.
-    """
-    # Retrieve GPU resource name from environment variable, if set.
-    # Else use default.
-    # E.g., can be nvidia.com/gpu-h100, amd.com/gpu etc.
-    return os.getenv('CUSTOM_GPU_RESOURCE_KEY', default=GPU_RESOURCE_KEY)
 
 
 def _get_kubeconfig_path() -> str:
