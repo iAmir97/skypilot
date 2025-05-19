@@ -72,7 +72,7 @@ MEMORY_SIZE_UNITS = {
 # The resource keys used by Kubernetes to track NVIDIA GPUs and Google TPUs on
 # nodes. These keys are typically used in the node's status.allocatable
 # or status.capacity fields to indicate the available resources on the node.
-GPU_RESOURCE_KEY = 'nvidia.com/gpu'
+GPU_RESOURCE_KEY = 'amd.com/gpu'
 TPU_RESOURCE_KEY = 'google.com/tpu'
 
 NO_ACCELERATOR_HELP_MESSAGE = (
