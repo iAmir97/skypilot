@@ -72,7 +72,7 @@ MEMORY_SIZE_UNITS = {
 # The resource keys used by Kubernetes to track NVIDIA GPUs and Google TPUs on
 # nodes. These keys are typically used in the node's status.allocatable
 # or status.capacity fields to indicate the available resources on the node.
-GPU_RESOURCE_KEY = 'nvidia.com/gpu'
+GPU_RESOURCE_KEY = 'amd.com/gpu'
 TPU_RESOURCE_KEY = 'google.com/tpu'
 
 NO_ACCELERATOR_HELP_MESSAGE = (
@@ -340,7 +340,7 @@ class CoreWeaveLabelFormatter(GPULabelFormatter):
     accelerator str as the value.
     """
 
-    LABEL_KEY = 'gpu.nvidia.com/class'
+    LABEL_KEY = 'gpu.amd.com/class'
 
     @classmethod
     def get_label_key(cls, accelerator: Optional[str] = None) -> str:
@@ -475,7 +475,7 @@ class GFDLabelFormatter(GPULabelFormatter):
     may map to multiple label, so we're not implementing `get_label_values`
     """
 
-    LABEL_KEY = 'nvidia.com/gpu.product'
+    LABEL_KEY = 'amd.com/gpu.product'
 
     @classmethod
     def get_label_key(cls, accelerator: Optional[str] = None) -> str:
