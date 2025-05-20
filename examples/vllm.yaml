@@ -1,0 +1,32 @@
+envs:
+  MODEL_NAME: Qwen/Qwen2.5-7B-Instruct
+  HF_HUB_CACHE: /models
+  EXTRA_ARGS: ""
+resources:
+  cpus: 8
+  memory: 32
+  ports: 8000
+  accelerators: mi210:1
+  cloud: kubernetes
+  image_id: ghcr.io/embeddedllm/vllm-rocm:v0.8.2-18ed313
+service:
+  ports: 8000
+  replicas: 1
+  readiness_probe:
+    path: /v1/models
+    initial_delay_seconds: 7200
+    timeout_seconds: 60
+config:
+  kubernetes:
+    pod_config:
+      metadata:
+            labels:
+              deployment: skypilot
+              deployment-type: vllm
+setup: |
+  POD_NAME=$(hostname)
+  echo "Launching vLLM deployment $POD_NAME"
+run: |
+  echo "Serving model $MODEL_NAME"
+  echo 'Starting vLLM OpenAI API Server...'
+  vllm serve $MODEL_NAME --host 0.0.0.0 --enable-chunked-prefill --enable-prefix-caching --disable-log-requests
