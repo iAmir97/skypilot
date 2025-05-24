@@ -96,7 +96,7 @@ spec:
       containers:
         - name: skypilot-api
           # image: berkeleyskypilot/skypilot-nightly:1.0.0.dev20250410
-          image: embeddedllminfo/skypilot:0.1
+          image: embeddedllminfo/skypilot-nightly-amd:1.0.1.dev20250518
           imagePullPolicy: Always
           env:
             - name: SKYPILOT_DEV

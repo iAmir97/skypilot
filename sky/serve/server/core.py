@@ -192,6 +192,9 @@ def up(
                                    vars_to_fill,
                                    output_path=controller_file.name)
         controller_task = task_lib.Task.from_yaml(controller_file.name)
+        if task.envs.get("CUSTOM_GPU_RESOURCE_KEY", None) is not None:
+            controller_task.envs["CUSTOM_GPU_RESOURCE_KEY"] = (
+                task.envs["CUSTOM_GPU_RESOURCE_KEY"])
         # TODO(tian): Probably run another sky.launch after we get the load
         # balancer port from the controller? So we don't need to open so many
         # ports here. Or, we should have a nginx traffic control to refuse

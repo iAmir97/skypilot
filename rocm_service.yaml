@@ -1,0 +1,59 @@
+service:
+  ports: 8000
+  replicas: 1
+  readiness_probe:
+    path: /health
+    initial_delay_seconds: 7200
+    timeout_seconds: 60
+
+envs:
+  CUSTOM_GPU_RESOURCE_KEY: "amd.com/gpu"
+
+resources:
+  ports: 8000
+  cloud: kubernetes
+  image_id: docker:rocm/pytorch:rocm6.0.2_ubuntu22.04_py3.10_pytorch_2.1.2
+  accelerators: mi210:1
+
+setup: |
+  # Install Flask for a more reliable HTTP server
+  pip install flask
+
+  # Create a simple Flask health check server
+  cat > health_server.py << 'EOF'
+  from flask import Flask, jsonify
+  import subprocess
+  
+  app = Flask(__name__)
+  
+  @app.route('/health')
+  def health():
+      try:
+          result = subprocess.run(['rocm-smi'], capture_output=True, text=True)
+          gpu_info = result.stdout
+          status_code = 200 if result.returncode == 0 else 500
+          status = 'healthy' if result.returncode == 0 else 'unhealthy'
+      except Exception as e:
+          gpu_info = str(e)
+          status_code = 500
+          status = 'unhealthy'
+      
+      response = {
+          'status': status,
+          'gpu_info': gpu_info
+      }
+      
+      return jsonify(response), status_code
+  
+  if __name__ == '__main__':
+      app.run(host='0.0.0.0', port=8000)
+  EOF
+
+run: |
+  # Run the rocm-smi command once to check GPU status
+  echo "Checking GPU status with rocm-smi:"
+  rocm-smi
+  
+  # Start the Flask health check server
+  echo "Starting health check server..."
+  python health_server.py

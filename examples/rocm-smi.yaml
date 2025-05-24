@@ -1,3 +1,6 @@
+envs:
+  CUSTOM_GPU_RESOURCE_KEY: "amd.com/gpu"
+
 resources:
   cloud: kubernetes
   image_id: docker:rocm/pytorch:rocm6.0.2_ubuntu22.04_py3.10_pytorch_2.1.2

@@ -46,7 +46,7 @@ def up(
         The request ID of the up request.
 
     Request Returns:
-        service_name (str): The name of the service.  Same if passed in as an
+        service_name (str): The name of the service. Same if passed in as an
             argument.
         endpoint (str): The service endpoint.
     """
@@ -66,10 +66,17 @@ def up(
     dag = client_common.upload_mounts_to_api_server(dag)
     dag_str = dag_utils.dump_chain_dag_to_yaml_str(dag)
 
+    # Create the body payload with env_vars
     body = payloads.ServeUpBody(
         task=dag_str,
         service_name=service_name,
     )
+    
+    # Check for CUSTOM_GPU_RESOURCE_KEY in task.envs and add it to env_vars
+    if hasattr(task, 'envs') and isinstance(task.envs, dict):
+        if "CUSTOM_GPU_RESOURCE_KEY" in task.envs:
+            body.env_vars["CUSTOM_GPU_RESOURCE_KEY"] = task.envs["CUSTOM_GPU_RESOURCE_KEY"]
+
     response = requests.post(
         f'{server_common.get_server_url()}/serve/up',
         json=json.loads(body.model_dump_json()),

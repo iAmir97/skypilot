@@ -1,0 +1,37 @@
+envs:
+  MODEL_NAME: smollm2:135m
+  HF_HUB_CACHE: /models
+  OLLAMA_HOST: 0.0.0.0:8000
+  EXTRA_ARGS: ""
+  CUSTOM_GPU_RESOURCE_KEY: amd.com/gpu
+resources:
+  cpus: 8
+  memory: 8
+  ports: 8000
+  accelerators: mi210:1
+  image_id: docker:ollama/ollama:rocm
+service:
+  ports: 8000
+  replicas: 1
+  readiness_probe:
+    path: /v1/models
+    initial_delay_seconds: 7200
+    timeout_seconds: 60
+config:
+  kubernetes:
+    pod_config:
+      metadata:
+            labels:
+              deployment: skypilot
+              deployment-type: ollama
+setup: |
+  POD_NAME=$(hostname)
+  echo "Launching ollama deployment $POD_NAME"
+
+  ollama pull $MODEL_NAME
+  echo "Model $MODEL_NAME pulled successfully."
+
+run: |
+  echo "Serving model $MODEL_NAME $EXTRA_ARGS"
+  # Run ollama serve in the foreground
+  ollama serve $EXTRA_ARGS

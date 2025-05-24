@@ -1299,11 +1299,20 @@ class ManagedJobCodeGen:
         return cls._build(code)
 
     @classmethod
-    def _build(cls, code: str) -> str:
+    def _build(cls, code: str, env_vars: Optional[Dict[str, str]] = None) -> str:
         generated_code = cls._PREFIX + '\n' + code
-        # Use the local user id to make sure the operation goes to the correct
-        # user.
-        return (
+        env_vars_str = ''
+        if env_vars:
+            env_vars_str = ' '.join(f'{k}="{v}"' for k, v in env_vars.items())
+        
+        result = (
             f'export {constants.USER_ID_ENV_VAR}='
-            f'"{common_utils.get_user_hash()}"; '
-            f'{constants.SKY_PYTHON_CMD} -u -c {shlex.quote(generated_code)}')
+            f'"{common_utils.get_user_hash()}"'
+        )
+        
+        if env_vars_str:
+            result += f'; {env_vars_str}'
+        
+        result += f'; {constants.SKY_PYTHON_CMD} -u -c {shlex.quote(generated_code)}'
+        
+        return result
